@@ -1,5 +1,5 @@
 import { Octokit } from "@octokit/core";
-import db from "../database.js";
+import { battleRepository } from "../repositories/battleRepository.js";
 
 async function getUserRepos(username: string) {
     const octokit = new Octokit();
@@ -20,7 +20,6 @@ async function getStars(repos1: any[], repos2: any[]) {
     let starsRepos1: number = 0;
     let starsRepos2: number = 0;
 
-    console.log('compare', repos1, "compare")
     repos1.forEach((repo) => {
         starsRepos1 += repo.stargazers_count
     })
@@ -30,7 +29,6 @@ async function getStars(repos1: any[], repos2: any[]) {
     })
 
     return { starsRepos1, starsRepos2 };
-
 }
 
 async function postBattle(firstUser: string, secondUser: string) {    
@@ -40,20 +38,37 @@ async function postBattle(firstUser: string, secondUser: string) {
     if (repos1 && repos2) {
         const stars = await getStars(repos1, repos2);
         const { starsRepos1, starsRepos2 } = stars;
+        let result = {};
 
-        //select - user no banco. Se tiver, update. Se não, insert
-        const r = await db.query("SELECT * FROM fighters WHERE USERNAME = $1", [firstUser]);
-        console.log('database', r.rows)
+        const username1 = await battleRepository.select(firstUser);
+        const username2 = await battleRepository.select(secondUser);
 
         if (starsRepos1 > starsRepos2) {
-            //1 winner
+            await username1.rows[0] ? battleRepository.update("wins", firstUser) : battleRepository.insertWinner(firstUser);
+            await username2.rows[0] ? battleRepository.update("losses", secondUser) : battleRepository.insertLoser(secondUser);
+            result = {
+                    "winner": firstUser,
+                    "loser": secondUser,
+                    "draw": false 
+            }
         } else if (starsRepos1 < starsRepos2) {
-            //2 winner
+            await username2.rows[0] ? battleRepository.update("wins", secondUser) : battleRepository.insertWinner(secondUser);
+            await username1.rows[0] ? battleRepository.update("losses", firstUser) : battleRepository.insertLoser(firstUser);
+            result = {
+                "winner": secondUser,
+                "loser": firstUser,
+                "draw": false
+            }
         } else {
-            //empate
+            await username1.rows[0] ? battleRepository.update("draws", firstUser) : battleRepository.insertDraw(firstUser);
+            await username2.rows[0] ? battleRepository.update("draws", secondUser) : battleRepository.insertDraw(secondUser);
+            result = {
+                "winner": null,
+                "loser": null,
+                "draw": true
+            }
         }
-
-        return stars;
+        return result;
     } else {
         return null;
     }
