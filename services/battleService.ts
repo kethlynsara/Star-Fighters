@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/core";
+import db from "../database.js";
 
 async function getUserRepos(username: string) {
     const octokit = new Octokit();
@@ -41,6 +42,8 @@ async function postBattle(firstUser: string, secondUser: string) {
         const { starsRepos1, starsRepos2 } = stars;
 
         //select - user no banco. Se tiver, update. Se não, insert
+        const r = await db.query("SELECT * FROM fighters WHERE USERNAME = $1", [firstUser]);
+        console.log('database', r.rows)
 
         if (starsRepos1 > starsRepos2) {
             //1 winner
